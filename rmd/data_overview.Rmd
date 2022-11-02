@@ -1,0 +1,97 @@
+---
+title: GVHD Single Cell RNA-Seq Data Overview
+author: 
+  - "V. Keith Hughitt"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: kable
+---
+
+# Overview
+
+Basic explorary analysis and overview of the GVHD single cell data.
+
+The data was produced by cellranger and stored in the [Market Exchange Format
+(MEX)](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/output/matrices)
+format.
+
+The files include:
+
+- **features.tsv.gz** (rows)
+- **barcodes.tsv.gz** (columns)
+- **matrix.mtx.gz** (sparse matrix data)
+
+# Methods
+
+```{r message=FALSE}
+library(tidyverse)
+library(Matrix)
+library(Seurat)
+library(yaml)
+
+cfg <- yaml::read_yaml("config/config.yml")
+```
+
+## Load data
+
+```{r}
+barcodes <- read_tsv(file.path(cfg$data_dir, "barcodes.tsv.gz"), col_names = c("barcode"),
+                     show_col_types = FALSE)
+
+features <- read_tsv(file.path(cfg$data_dir, "features.tsv.gz"),
+                     col_names = c('ensgene', 'symbol', 'type'),
+                     show_col_types = FALSE)
+
+mat <- mat <- readMM(file.path(cfg$data_dir, "matrix.mtx.gz"))
+
+rownames(mat) <- features$ensgene
+colnames(mat) <- barcodes$barcode
+
+dim(mat)
+
+# overall sparsity?
+nnzero(mat, na.counted = TRUE) / (nrow(mat) * ncol(mat))
+```
+
+## Data Summary
+
+```{r}
+# gene totals
+gene_totals <- rowSums(mat)
+plot(density(log10(gene_totals)), main = 'Distribution of log(gene UMI totals)')
+
+# cell totals
+cell_totals <- colSums(mat)
+plot(density(log10(cell_totals)), main = 'Distribution of log(gene UMI totals)')
+```
+
+Genes with the highest expression?
+
+```{r}
+top_genes <- sort(gene_totals, decreasing = TRUE) %>%
+  enframe() %>%
+  rename(ensgene = name, total = value)
+
+top_genes$symbol <- features$symbol[match(top_genes$ensgene, features$ensgene)]
+
+head(top_genes, 20)
+```
+
+## Seurat
+
+```{r}
+seurat_object <- CreateSeuratObject(counts = mat, project = "scRNA-seq", assay = "RNA")
+
+seurat_object
+
+dim(seurat_object@meta.data)
+
+head(seurat_object@meta.data)
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
