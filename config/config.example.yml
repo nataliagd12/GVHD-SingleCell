@@ -1,0 +1,8 @@
+version: "0.1"
+
+input_data:
+  counts: '/path/to/matrix.mtx.gz'
+  genes: '/path/to/features.tsv.gz'
+  cell_ids: '/path/to/barcodes.tsv.gz'
+
+output_dir: "/path/to/output/dir"

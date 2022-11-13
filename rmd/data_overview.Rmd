@@ -3,6 +3,8 @@ title: GVHD Single Cell RNA-Seq Data Overview
 author: 
   - "V. Keith Hughitt"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+params:
+   rmd: "data_overview.Rmd"
 output:
   html_document:
     df_print: kable
@@ -24,43 +26,44 @@ The files include:
 
 # Methods
 
-```{r message=FALSE}
+```{r load_libraries, message=FALSE}
 library(tidyverse)
 library(Matrix)
-library(Seurat)
-library(yaml)
-
-cfg <- yaml::read_yaml("config/config.yml")
 ```
 
 ## Load data
 
-```{r}
-barcodes <- read_tsv(file.path(cfg$data_dir, "barcodes.tsv.gz"), col_names = c("barcode"),
-                     show_col_types = FALSE)
+```{r load_data}
+cfg <- snakemake@config
 
-features <- read_tsv(file.path(cfg$data_dir, "features.tsv.gz"),
+# load data, barcodes and feature metadata
+barcodes <- read_tsv(cfg$input_data$cell_ids, col_names = c("barcode"), show_col_types = FALSE)
+
+features <- read_tsv(cfg$input_data$genes,
                      col_names = c('ensgene', 'symbol', 'type'),
                      show_col_types = FALSE)
 
-mat <- mat <- readMM(file.path(cfg$data_dir, "matrix.mtx.gz"))
-
+mat <- mat <- readMM(cfg$input_data$counts)
 rownames(mat) <- features$ensgene
 colnames(mat) <- barcodes$barcode
 
 dim(mat)
+```
 
+```{r data_sparsity}
 # overall sparsity?
 nnzero(mat, na.counted = TRUE) / (nrow(mat) * ncol(mat))
 ```
 
 ## Data Summary
 
-```{r}
+```{r gene_totals}
 # gene totals
 gene_totals <- rowSums(mat)
 plot(density(log10(gene_totals)), main = 'Distribution of log(gene UMI totals)')
+```
 
+```{r cell_totals}
 # cell totals
 cell_totals <- colSums(mat)
 plot(density(log10(cell_totals)), main = 'Distribution of log(gene UMI totals)')
@@ -68,7 +71,7 @@ plot(density(log10(cell_totals)), main = 'Distribution of log(gene UMI totals)')
 
 Genes with the highest expression?
 
-```{r}
+```{r top_genes}
 top_genes <- sort(gene_totals, decreasing = TRUE) %>%
   enframe() %>%
   rename(ensgene = name, total = value)
@@ -80,8 +83,8 @@ head(top_genes, 20)
 
 ## Seurat
 
-```{r}
-seurat_object <- CreateSeuratObject(counts = mat, project = "scRNA-seq", assay = "RNA")
+```{r seurat_object_preview}
+seurat_object <- readRDS(snakemake@input[[1]])
 
 seurat_object
 
@@ -92,6 +95,6 @@ head(seurat_object@meta.data)
 
 # Session Info
 
-```{r}
+```{r session_info}
 sessionInfo()
 ```
