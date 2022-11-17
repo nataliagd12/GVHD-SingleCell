@@ -1,0 +1,5 @@
+snakemake-minimal
+r-base>=4.1
+r-rmarkdown
+r-tidyverse
+r-seurat
